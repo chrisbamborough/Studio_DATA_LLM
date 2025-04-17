@@ -1,0 +1,46 @@
+<!-- public/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Portfolio Chat</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <!-- Import Transformers.js from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@xenova/transformers@2.6.0"></script>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Alex Developer</h1>
+        <p>Full Stack Developer</p>
+      </header>
+
+      <main>
+        <section class="chat-section">
+          <div class="chat-container">
+            <div class="chat-messages" id="chat-messages">
+              <!-- Messages will be added here -->
+            </div>
+
+            <div class="model-status" id="model-status">
+              Model status: Initializing...
+            </div>
+
+            <div class="chat-input">
+              <input
+                type="text"
+                id="user-input"
+                placeholder="Ask about my projects..."
+                disabled
+              />
+              <button id="send-button" disabled>Send</button>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="js/app.js" type="module"></script>
+  </body>
+</html>
