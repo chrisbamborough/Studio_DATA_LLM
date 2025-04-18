@@ -3,6 +3,9 @@ const cors = require("cors");
 const path = require("path");
 require("dotenv").config();
 
+// Import your content service
+const contentService = require('./services/contentService');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -11,32 +14,30 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "../../public")));
 
-// Basic API route
+// Get all portfolio data
 app.get("/api/portfolio-data", (req, res) => {
-  // This would come from a database in a real implementation
-  const portfolioData = {
-    projects: [
-      {
-        id: 1,
-        title: "E-commerce Platform",
-        description: "Full-stack online store with React, Node.js, and MongoDB",
-        tags: ["React", "Node.js", "MongoDB", "Express"],
-      },
-      {
-        id: 2,
-        title: "Personal Blog",
-        description: "A responsive blog site with a CMS built on Next.js",
-        tags: ["Next.js", "Tailwind CSS", "Markdown", "Vercel"],
-      },
-    ],
-    about: {
-      name: "Alex Developer",
-      title: "Full Stack Developer",
-      bio: "I'm a web developer with a passion for creating intuitive and performant applications.",
-    },
-  };
+  try {
+    const portfolioData = {
+      projects: contentService.getProjects(),
+      about: contentService.getAbout()
+    };
+    
+    res.json(portfolioData);
+  } catch (error) {
+    console.error('Error fetching portfolio data:', error);
+    res.status(500).json({ message: 'Failed to fetch portfolio data' });
+  }
+});
 
-  res.json(portfolioData);
+// Get specific project details
+app.get("/api/projects/:id", (req, res) => {
+  const project = contentService.getProjectById(req.params.id);
+  
+  if (!project) {
+    return res.status(404).json({ message: 'Project not found' });
+  }
+  
+  res.json(project);
 });
 
 // Start the server

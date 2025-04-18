@@ -30,7 +30,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Add welcome message
     addMessage(
-      "Hi there! I'm Alex's portfolio assistant. Ask me about projects, skills, or experience!",
+      "Hi there! I'm a studio assistant. Ask me about Studio DATA's projects, skills, or experience!",
       false
     );
   } catch (error) {
@@ -215,16 +215,20 @@ function extractRelevantInfo(message) {
 // Create a prompt for the language model
 function createPrompt(message, relevantInfo) {
   return `
-You are an AI assistant for a portfolio website. Your name is Assistant and you help visitors learn about Alex, a Full Stack Developer.
+You are an AI assistant embedded in a portfolio website for ${
+    portfolioData.about.name
+  }.
+Your only knowledge comes from the following PORTFOLIO INFORMATION section.
+If asked about something not in this information, suggest the visitor contact the portfolio owner.
 
 PORTFOLIO INFORMATION:
-${JSON.stringify(relevantInfo)}
+${JSON.stringify(relevantInfo, null, 2)}
 
 INSTRUCTIONS:
-- Be helpful, friendly, and concise
-- Answer based on the portfolio information provided
-- If you don't know the answer, suggest the visitor explore the portfolio sections
-- Keep responses under 3 sentences when possible
+- Always reference specific portfolio items mentioned in the PORTFOLIO INFORMATION
+- Use exact project names, skills, and descriptions from the data provided
+- If someone asks about a project, mention its specific features and technologies
+- Keep responses focused only on the provided portfolio information
 
 User: ${message}
 Assistant:`;
@@ -246,7 +250,7 @@ function processGeneratedText(generatedText, prompt) {
 
   // If response is too short or empty, provide a fallback
   if (response.length < 10) {
-    return "I understand your question about the portfolio, but I'm having trouble formulating a good response. Maybe try asking in a different way?";
+    return "I understand your question about the studio, but I'm having trouble formulating a good response. Maybe try asking in a different way?";
   }
 
   return response;
