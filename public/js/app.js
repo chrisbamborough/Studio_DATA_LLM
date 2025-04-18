@@ -4,6 +4,9 @@ import {
   env,
 } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.6.0";
 
+// Add marked library import at the top
+import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
+
 // Set environment variables
 env.allowLocalModels = false; // Only use models from Hugging Face Hub
 env.useBrowserCache = true; // Cache models in browser
@@ -30,7 +33,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Add welcome message
     addMessage(
-      "Hi there! I'm a studio assistant. Ask me about Studio DATA's projects, skills, or experience!",
+      "Hi there! I'm Studio DATA's agent. What would you like to find out about?",
       false
     );
   } catch (error) {
@@ -134,7 +137,13 @@ function addMessage(text, isUser) {
   const messageDiv = document.createElement("div");
   messageDiv.classList.add("message");
   messageDiv.classList.add(isUser ? "user-message" : "assistant-message");
-  messageDiv.textContent = text;
+
+  // Parse markdown for assistant messages only
+  if (!isUser) {
+    messageDiv.innerHTML = marked.parse(text);
+  } else {
+    messageDiv.textContent = text;
+  }
 
   chatMessages.appendChild(messageDiv);
   chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -159,54 +168,43 @@ function showThinking() {
 
 // Generate response with the model
 async function generateResponse(message) {
-  // Create a context for the model with portfolio information
   const relevantInfo = extractRelevantInfo(message);
-
-  // Create a prompt for the model
   const prompt = createPrompt(message, relevantInfo);
 
-  // Generate response
   const result = await generator(prompt, {
-    max_new_tokens: 100,
-    temperature: 0.7,
-    top_p: 0.9,
-    repetition_penalty: 1.2,
+    max_new_tokens: 200, // Increased for more detailed responses
+    temperature: 0.2, // Reduced further for more factual responses
+    top_p: 0.5, // More conservative sampling
+    repetition_penalty: 1.8, // Increased to avoid repetition
+    no_repeat_ngram_size: 3, // Prevent repetitive phrases
   });
 
-  // Process the generated text to get a clean response
   return processGeneratedText(result[0].generated_text, prompt);
 }
 
 // Extract relevant information from portfolio data based on user message
 function extractRelevantInfo(message) {
-  const lowercaseMessage = message.toLowerCase();
-  let relevantInfo = {};
+  let relevantInfo = {
+    context: {},
+    matchedProjects: [],
+  };
 
-  // Check for project-related queries
-  if (
-    lowercaseMessage.includes("project") ||
-    lowercaseMessage.includes("work") ||
-    lowercaseMessage.includes("portfolio")
-  ) {
-    relevantInfo.projects = portfolioData.projects;
+  // Search for relevant projects
+  const matchedProjects = searchPortfolioContent(message);
+
+  if (matchedProjects.length > 0) {
+    relevantInfo.matchedProjects = matchedProjects.map((project) => ({
+      title: project.title,
+      tags: project.tags,
+      media: project.media,
+      content: project.content,
+      excerpt: project.excerpt,
+    }));
   }
 
-  // Check for personal info queries
-  if (
-    lowercaseMessage.includes("about") ||
-    lowercaseMessage.includes("who") ||
-    lowercaseMessage.includes("background") ||
-    lowercaseMessage.includes("experience")
-  ) {
-    relevantInfo.about = portfolioData.about;
-  }
-
-  // If nothing specific matched, include basic info
-  if (Object.keys(relevantInfo).length === 0) {
-    relevantInfo = {
-      about: portfolioData.about,
-      projectCount: portfolioData.projects.length,
-    };
+  // Add specific context based on query type
+  if (message.toLowerCase().includes("about")) {
+    relevantInfo.context.about = portfolioData.about;
   }
 
   return relevantInfo;
@@ -214,44 +212,154 @@ function extractRelevantInfo(message) {
 
 // Create a prompt for the language model
 function createPrompt(message, relevantInfo) {
-  return `
-You are an AI assistant embedded in a portfolio website for ${
-    portfolioData.about.name
-  }.
-Your only knowledge comes from the following PORTFOLIO INFORMATION section.
-If asked about something not in this information, suggest the visitor contact the portfolio owner.
+  const projectCount = portfolioData.projects.length;
 
-PORTFOLIO INFORMATION:
-${JSON.stringify(relevantInfo, null, 2)}
+  // Create a simpler, more direct prompt
+  return `Format the response exactly like this markdown template:
 
-INSTRUCTIONS:
-- Always reference specific portfolio items mentioned in the PORTFOLIO INFORMATION
-- Use exact project names, skills, and descriptions from the data provided
-- If someone asks about a project, mention its specific features and technologies
-- Keep responses focused only on the provided portfolio information
+## Portfolio Projects
 
-User: ${message}
-Assistant:`;
+${portfolioData.projects.length} projects are available:
+
+${relevantInfo.matchedProjects
+  .map(
+    (project) => `### ${project.title}
+**Type:** ${project.media}
+**Tags:** ${project.tags.join(", ")}
+
+> ${
+      project.excerpt
+        ? project.excerpt.split(".")[0]
+        : project.content.split(".")[0]
+    }.
+`
+  )
+  .join("\n\n")}
+
+---
+
+*Next steps:*
+* Learn more about a specific project
+* See projects by category
+* Browse by media type
+
+User: ${message}`;
+}
+
+// Add this new helper function
+function cleanProjectContent(project) {
+  // Clean content/excerpt of HTML and markup
+  const cleanContent = (project.excerpt || project.content || "")
+    .replace(/<[^>]*>/g, "")
+    .replace(/\{[^}]*\}/g, "")
+    .replace(/\[[^\]]*\]\([^)]*\)/g, "")
+    .split(".")[0];
+
+  return `### ${project.title}
+**Tags:** ${project.tags.join(", ")}
+**Media:** ${project.media}
+
+> ${cleanContent}.`;
 }
 
 // Process the generated text to get a clean response
 function processGeneratedText(generatedText, prompt) {
-  // Extract just the assistant's response
-  const assistantPrefix = "Assistant:";
-  const assistantResponseStart =
-    generatedText.lastIndexOf(assistantPrefix) + assistantPrefix.length;
-  let response = generatedText.slice(assistantResponseStart).trim();
+  // Extract only the generated response
+  const responseStart = generatedText.indexOf("##");
+  if (responseStart === -1) {
+    // Fallback response if formatting fails
+    return `## Portfolio Projects
 
-  // Clean up any incomplete sentences at the end
-  const endPunctuation = response.lastIndexOf(".");
-  if (endPunctuation !== -1 && endPunctuation < response.length - 1) {
-    response = response.slice(0, endPunctuation + 1);
+${portfolioData.projects.length} projects are available.
+
+${portfolioData.projects
+  .map(
+    (project) => `### ${project.title}
+**Type:** ${project.media}
+**Tags:** ${project.tags.join(", ")}
+
+> ${
+      project.excerpt
+        ? project.excerpt.split(".")[0]
+        : project.content.split(".")[0]
+    }.
+`
+  )
+  .join("\n\n")}
+
+---
+
+*Next steps:*
+* Learn more about a specific project
+* See projects by category
+* Browse by media type`;
   }
 
-  // If response is too short or empty, provide a fallback
-  if (response.length < 10) {
-    return "I understand your question about the studio, but I'm having trouble formulating a good response. Maybe try asking in a different way?";
+  // Clean up the response
+  let response = generatedText
+    .slice(responseStart)
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/<[^>]*>/g, "")
+    .trim();
+
+  // Ensure it ends with the options section
+  if (!response.includes("---")) {
+    response +=
+      "\n\n---\n\n*Next steps:*\n* Learn more about a specific project\n* See projects by category\n* Browse by media type";
   }
 
   return response;
+}
+
+function getResponseTitle(prompt) {
+  // Extract topic from user query
+  const userQuery = prompt.split("User:").pop().trim().toLowerCase();
+  if (userQuery.includes("project")) return "Portfolio Projects";
+  if (userQuery.includes("about")) return "About Studio DATA";
+  return "Studio DATA Information";
+}
+
+// Search portfolio content
+function searchPortfolioContent(query) {
+  // If querying for all projects, return everything
+  if (
+    query.toLowerCase().includes("projects") ||
+    query.toLowerCase().includes("all")
+  ) {
+    return portfolioData.projects;
+  }
+
+  const searchTerms = query.toLowerCase().split(" ");
+
+  // Score and rank projects based on relevance
+  const scoredProjects = portfolioData.projects.map((project) => {
+    let score = 0;
+    const searchableContent = [
+      project.title,
+      project.content,
+      project.excerpt,
+      ...project.tags,
+      project.media,
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    searchTerms.forEach((term) => {
+      const matches = searchableContent.match(new RegExp(term, "g"));
+      if (matches) score += matches.length;
+
+      // Boost score for exact matches in title and tags
+      if (project.title.toLowerCase().includes(term)) score += 5;
+      if (project.tags.some((tag) => tag.toLowerCase().includes(term)))
+        score += 3;
+    });
+
+    return { project, score };
+  });
+
+  // Return all relevant projects (removed the slice limit)
+  return scoredProjects
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map((item) => item.project);
 }

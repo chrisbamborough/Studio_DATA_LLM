@@ -97,6 +97,34 @@ header h1 {
   border-bottom-left-radius: 4px;
 }
 
+.assistant-message h2 {
+  margin-top: 0;
+  color: #2c3e50;
+  font-size: 1.2em;
+}
+
+.assistant-message ul {
+  margin: 10px 0;
+  padding-left: 20px;
+}
+
+.assistant-message blockquote {
+  border-left: 3px solid #2c3e50;
+  margin: 10px 0;
+  padding-left: 10px;
+  color: #555;
+}
+
+.assistant-message hr {
+  border: 0;
+  border-top: 1px solid #eee;
+  margin: 15px 0;
+}
+
+.assistant-message strong {
+  color: #2c3e50;
+}
+
 .model-status {
   padding: 0.5rem 1rem;
   font-size: 0.8rem;
